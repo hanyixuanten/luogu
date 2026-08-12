@@ -3,4 +3,5 @@
 !.gitignore
 !README.md
 !*.md
+!clean.sh
 tmp.md
