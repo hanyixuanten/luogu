@@ -2,6 +2,7 @@
 !*.cpp
 !.gitignore
 !README.md
-!*.md
+!solutions
+!solutions/*.md
 !clean.sh
 tmp.md
