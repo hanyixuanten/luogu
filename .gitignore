@@ -6,4 +6,6 @@
 !solutions/*.md
 !clean.sh
 !*.md
+!.github
+!.github/**
 tmp.md

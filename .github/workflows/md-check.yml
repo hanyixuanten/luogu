@@ -1,0 +1,68 @@
+name: Check cpp / md pair
+
+on:
+  push:
+    paths:
+      - '*.cpp'
+      - '*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  check-md-header:
+    name: Check markdown header
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate md first line
+        run: |
+          set -euo pipefail
+
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.after }}"
+
+          # 处理新分支第一次 push 的情况（before 为全零）
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACM 4b825dc642cb6eb9a060e54bf8d69288fbee4904 "$AFTER" || true)
+          else
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACM "$BEFORE" "$AFTER" || true)
+          fi
+
+          # 筛选出根目录下的 .cpp 文件
+          CPP_FILES=$(echo "$CHANGED_FILES" | grep -E '^[^/]+\.cpp$' || true)
+
+          if [ -z "$CPP_FILES" ]; then
+            echo "本次 push 没有根目录下的 .cpp 文件变更，跳过检查。"
+            exit 0
+          fi
+
+          EXIT_CODE=0
+
+          while IFS= read -r cpp_file; do
+            [ -z "$cpp_file" ] && continue
+            base=$(basename "$cpp_file" .cpp)
+            md_file="${base}.md"
+
+            if [ ! -f "$md_file" ]; then
+              echo "::error file=${cpp_file}::对应的 Markdown 文件 ${md_file} 不存在"
+              EXIT_CODE=1
+              continue
+            fi
+
+            FIRST_LINE=$(head -n 1 "$md_file")
+
+            # 检查第一行是否匹配 "# <base> 任意内容"
+            if ! grep -qE "^# ${base} .*$" <<< "$FIRST_LINE"; then
+              echo "::error file=${md_file},line=1::Markdown 第一行格式错误。期望以 '# ${base} ' 开头，实际为: ${FIRST_LINE}"
+              EXIT_CODE=1
+            else
+              echo "✅ ${md_file} 第一行格式正确: ${FIRST_LINE}"
+            fi
+          done <<< "$CPP_FILES"
+
+          exit $EXIT_CODE
