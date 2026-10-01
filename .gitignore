@@ -5,4 +5,5 @@
 !solutions
 !solutions/*.md
 !clean.sh
+!*.md
 tmp.md
