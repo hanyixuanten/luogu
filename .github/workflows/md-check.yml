@@ -13,6 +13,8 @@ jobs:
   check-md-header:
     name: Check markdown header
     runs-on: ubuntu-latest
+    outputs:
+      has_cpp: ${{ steps.check.outputs.has_cpp }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,6 +22,7 @@ jobs:
           fetch-depth: 0
 
       - name: Validate md first line
+        id: check
         run: |
           set -euo pipefail
 
@@ -33,11 +36,21 @@ jobs:
             CHANGED_FILES=$(git diff --name-only --diff-filter=ACM "$BEFORE" "$AFTER" || true)
           fi
 
-          # 筛选出根目录下的 .cpp 文件
+          # 筛选出根目录下的 .cpp / .md 文件
           CPP_FILES=$(echo "$CHANGED_FILES" | grep -E '^[^/]+\.cpp$' || true)
+          MD_FILES=$(echo "$CHANGED_FILES" | grep -E '^[^/]+\.md$' || true)
 
           if [ -z "$CPP_FILES" ]; then
             echo "本次 push 没有根目录下的 .cpp 文件变更，跳过检查。"
+            echo "has_cpp=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "has_cpp=true" >> "$GITHUB_OUTPUT"
+
+          # 若提交中没有任何 .md 变更，则跳过标题配对检查，直接放行
+          if [ -z "$MD_FILES" ]; then
+            echo "本次 push 没有根目录下的 .md 文件变更，跳过标题配对检查。"
             exit 0
           fi
 
@@ -66,3 +79,77 @@ jobs:
           done <<< "$CPP_FILES"
 
           exit $EXIT_CODE
+
+  # 校验通过后触发代码分析（异步，不等待结果）
+  analyze:
+    name: Analyze cpp files
+    needs: check-md-header
+    if: needs.check-md-header.outputs.has_cpp == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Submit code for analysis
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          set -euo pipefail
+
+          API_BASE="https://oia.vblg.top"
+
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.after }}"
+
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACM 4b825dc642cb6eb9a060e54bf8d69288fbee4904 "$AFTER" || true)
+          else
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACM "$BEFORE" "$AFTER" || true)
+          fi
+
+          CPP_FILES=$(echo "$CHANGED_FILES" | grep -E '^[^/]+\.cpp$' || true)
+
+          if [ -z "$CPP_FILES" ]; then
+            echo "没有需要分析的 .cpp 文件。"
+            exit 0
+          fi
+
+          while IFS= read -r cpp_file; do
+            [ -z "$cpp_file" ] && continue
+            echo "提交分析: $cpp_file"
+
+            BASE=$(basename "$cpp_file" .cpp)
+            CODE=$(cat "$cpp_file")
+
+            # 只提交代码，不提交题面
+            PAYLOAD=$(jq -n \
+              --arg problem_id "$BASE" \
+              --arg problem "" \
+              --arg code "$CODE" \
+              --arg notes "" \
+              --arg language "cpp17" \
+              '{
+                problem_id: $problem_id,
+                problem: $problem,
+                code: $code,
+                notes: $notes,
+                language: $language
+              }')
+
+            HTTP_CODE=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+              -X POST "${API_BASE}/api/v1/analyze" \
+              -H "Authorization: Bearer ${API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD")
+
+            # 202 = 已接受，后台执行；无需等待分析结束
+            if [ "$HTTP_CODE" != "202" ]; then
+              echo "::error file=${cpp_file}::提交分析失败 (HTTP ${HTTP_CODE})"
+              cat /tmp/resp.json || true
+              exit 1
+            fi
+
+            echo "已提交: $(cat /tmp/resp.json)"
+          done <<< "$CPP_FILES"
