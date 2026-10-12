@@ -8,4 +8,4 @@
 !*.md
 !.github
 !.github/**
-tmp.md
+!.clang-format
