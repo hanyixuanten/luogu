@@ -6,11 +6,9 @@ const long long MOD = 1000000007LL;
 struct Mat {
     long long a[105][105];
     int n, m;
-
     Mat(int _n = 0, int _m = 0) : n(_n), m(_m) {
         memset(a, 0, sizeof(a));
     }
-
     void operator*=(const Mat &b) {
         if (m != b.n) {
             cerr << "矩阵维度不匹配" << endl;
@@ -56,7 +54,6 @@ int main() {
     }
 
     Mat base1(1, 2), base2(2, 2);
-
     base1.a[1][1] = 1;
     base1.a[1][2] = 1;
     base2.a[1][1] = 1;
