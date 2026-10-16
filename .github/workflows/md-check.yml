@@ -2,9 +2,6 @@ name: Check cpp / md pair and analyze cpp
 
 on:
   push:
-    paths:
-      - '**/*.cpp'
-      - '**/*.md'
 
 permissions:
   contents: read
@@ -32,7 +29,8 @@ jobs:
             CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR "$BEFORE" "$AFTER" || true)
           fi
 
-          mapfile -t CPP_FILES < <(printf '%s\n' "$CHANGED_FILES" | grep -E '\.cpp$' || true)
+          # 仅保留根目录下的 .cpp 文件（路径中不含 "/"）
+          mapfile -t CPP_FILES < <(printf '%s\n' "$CHANGED_FILES" | grep -E '^[^/]+\.cpp$' || true)
 
           : > /tmp/cpp_files.txt
           for f in "${CPP_FILES[@]}"; do
@@ -40,25 +38,19 @@ jobs:
           done
 
           if [ "${#CPP_FILES[@]}" -eq 0 ]; then
-            echo "本次 push 没有 .cpp 文件，跳过检查与分析。"
+            echo "本次 push 没有根目录下的 .cpp 文件，跳过检查与分析。"
             exit 0
           fi
 
-          echo "本次 push 中的 .cpp 文件："
+          echo "本次 push 中根目录下的 .cpp 文件："
           printf '  %s\n' "${CPP_FILES[@]}"
 
           EXIT_CODE=0
           for cpp_file in "${CPP_FILES[@]}"; do
             [ -z "$cpp_file" ] && continue
 
-            dir=$(dirname "$cpp_file")
             base=$(basename "$cpp_file" .cpp)
-
-            if [ "$dir" = "." ]; then
-              md_file="${base}.md"
-            else
-              md_file="${dir}/${base}.md"
-            fi
+            md_file="${base}.md"
 
             if [ -f "$md_file" ]; then
               FIRST_LINE=$(head -n 1 "$md_file")
