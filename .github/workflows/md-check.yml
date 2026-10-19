@@ -1,4 +1,4 @@
-name: Check cpp / md pair and analyze cpp
+name: Check cpp / md pair
 
 on:
   push:
@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   check-and-analyze:
-    name: Check md headers and analyze cpp
+    name: Check md headers
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -68,51 +68,51 @@ jobs:
 
           exit $EXIT_CODE
 
-      - name: Submit changed cpp files for analysis
-        env:
-          API_KEY: ${{ secrets.API_KEY }}
-        run: |
-          set -euo pipefail
+      # - name: Submit changed cpp files for analysis
+      #   env:
+      #     API_KEY: ${{ secrets.API_KEY }}
+      #   run: |
+      #     set -euo pipefail
 
-          API_BASE="https://oia.vblg.top"
+      #     API_BASE="https://oia.vblg.top"
 
-          if [ ! -s /tmp/cpp_files.txt ]; then
-            echo "没有需要分析的 .cpp 文件。"
-            exit 0
-          fi
+      #     if [ ! -s /tmp/cpp_files.txt ]; then
+      #       echo "没有需要分析的 .cpp 文件。"
+      #       exit 0
+      #     fi
 
-          while IFS= read -r cpp_file; do
-            [ -z "$cpp_file" ] && continue
-            echo "提交分析: $cpp_file"
+      #     while IFS= read -r cpp_file; do
+      #       [ -z "$cpp_file" ] && continue
+      #       echo "提交分析: $cpp_file"
 
-            BASE=$(basename "$cpp_file" .cpp)
-            CODE=$(cat "$cpp_file")
+      #       BASE=$(basename "$cpp_file" .cpp)
+      #       CODE=$(cat "$cpp_file")
 
-            PAYLOAD=$(jq -n \
-              --arg problem_id "$BASE" \
-              --arg problem "" \
-              --arg code "$CODE" \
-              --arg notes "" \
-              --arg language "cpp17" \
-              '{
-                problem_id: $problem_id,
-                problem: $problem,
-                code: $code,
-                notes: $notes,
-                language: $language
-              }')
+      #       PAYLOAD=$(jq -n \
+      #         --arg problem_id "$BASE" \
+      #         --arg problem "" \
+      #         --arg code "$CODE" \
+      #         --arg notes "" \
+      #         --arg language "cpp17" \
+      #         '{
+      #           problem_id: $problem_id,
+      #           problem: $problem,
+      #           code: $code,
+      #           notes: $notes,
+      #           language: $language
+      #         }')
 
-            HTTP_CODE=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
-              -X POST "${API_BASE}/api/v1/analyze" \
-              -H "Authorization: Bearer ${API_KEY}" \
-              -H "Content-Type: application/json" \
-              -d "$PAYLOAD")
+      #       HTTP_CODE=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+      #         -X POST "${API_BASE}/api/v1/analyze" \
+      #         -H "Authorization: Bearer ${API_KEY}" \
+      #         -H "Content-Type: application/json" \
+      #         -d "$PAYLOAD")
 
-            if [ "$HTTP_CODE" != "202" ]; then
-              echo "::error file=${cpp_file}::提交分析失败 (HTTP ${HTTP_CODE})"
-              cat /tmp/resp.json || true
-              exit 1
-            fi
+      #       if [ "$HTTP_CODE" != "202" ]; then
+      #         echo "::error file=${cpp_file}::提交分析失败 (HTTP ${HTTP_CODE})"
+      #         cat /tmp/resp.json || true
+      #         exit 1
+      #       fi
 
-            echo "已提交: $(cat /tmp/resp.json)"
-          done < /tmp/cpp_files.txt
+      #       echo "已提交: $(cat /tmp/resp.json)"
+      #     done < /tmp/cpp_files.txt
