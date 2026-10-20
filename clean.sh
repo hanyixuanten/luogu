@@ -1,2 +1,3 @@
-find . -maxdepth 1 -type f ! -name "*.*" -executable -delete
-rm -rf *.in *.out
+find . -type f ! -name "*.*" -executable -delete
+find . -type f -name "*.in" -delete
+find . -type f -name "*.out" -delete
