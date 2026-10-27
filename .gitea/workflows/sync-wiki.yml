@@ -19,6 +19,22 @@ jobs:
   sync:
     runs-on: ubuntu-latest-slim
     steps:
+      # slim 镜像里没有 git，必须先装，否则后续 checkout / clone 都会失败
+      - name: Install git
+        run: |
+          set -euo pipefail
+          if command -v git >/dev/null 2>&1; then
+            echo "git already installed: $(git --version)"
+            exit 0
+          fi
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git \
+            ca-certificates
+          rm -rf /var/lib/apt/lists/*
+          git --version
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -70,7 +86,7 @@ jobs:
         run: |
           cd wiki
           git config user.name  "gitea-actions[bot]"
-          git config user.email "gitea-actions[bot]@users.noreply.${{ github.server_url }}"
+          git config user.email "gitea-actions[bot]@noreply.${{ github.server_url }}"
 
           git add -A
           if git diff --cached --quiet; then
