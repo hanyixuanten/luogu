@@ -19,40 +19,21 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      # slim 镜像里没有 git，必须先装，否则后续 checkout / clone 都会失败
-      - name: Install git
-        run: |
-          set -euo pipefail
-          if command -v git >/dev/null 2>&1; then
-            echo "git already installed: $(git --version)"
-            exit 0
-          fi
-          export DEBIAN_FRONTEND=noninteractive
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            git \
-            ca-certificates
-          rm -rf /var/lib/apt/lists/*
-          git --version
-
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Clone wiki repo
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN }}
           SERVER_URL: ${{ github.server_url }}
         run: |
           set -euo pipefail
           HOST="${SERVER_URL#https://}"
           HOST="${HOST#http://}"
-
-          # Gitea 的 wiki 仓库 URL 与 GitHub 相同：<server>/<owner>/<repo>.wiki.git
-          # 认证用 x-access-token:<token> 作为 Basic Auth
           if ! git clone \
-            "https://x-access-token:${GH_TOKEN}@${HOST}/${{ github.repository }}.wiki.git" \
+            "https://oauth2:${WIKI_TOKEN}@${HOST}/${{ github.repository }}.wiki.git" \
             wiki; then
-            echo "::error::Clone wiki failed. 请先在 Gitea 网页端初始化 Wiki（创建首页），再重试。"
+            echo "::error::Clone wiki failed. 检查: 1) wiki 是否已初始化 2) ENABLE_LOCAL_WIKI 是否开启 3) WIKI_TOKEN 是否有 write:repository 权限"
             exit 1
           fi
 
