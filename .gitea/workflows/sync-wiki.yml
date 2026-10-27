@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   sync:
-    runs-on: ubuntu-latest-slim
+    runs-on: ubuntu-latest
     steps:
       # slim 镜像里没有 git，必须先装，否则后续 checkout / clone 都会失败
       - name: Install git
