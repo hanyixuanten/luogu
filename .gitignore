@@ -6,6 +6,6 @@
 !solutions/*.md
 !clean.sh
 !*.md
-!.github
-!.github/**
+!.gitea
+!.gitea/**
 !.clang-format
