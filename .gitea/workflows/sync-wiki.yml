@@ -1,0 +1,82 @@
+# .gitea/workflows/sync-wiki.yml
+name: Sync solutions to Wiki
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "solutions/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wiki-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Clone wiki repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          set -euo pipefail
+          HOST="${SERVER_URL#https://}"
+          HOST="${HOST#http://}"
+
+          # Gitea 的 wiki 仓库 URL 与 GitHub 相同：<server>/<owner>/<repo>.wiki.git
+          # 认证用 x-access-token:<token> 作为 Basic Auth
+          if ! git clone \
+            "https://x-access-token:${GH_TOKEN}@${HOST}/${{ github.repository }}.wiki.git" \
+            wiki; then
+            echo "::error::Clone wiki failed. 请先在 Gitea 网页端初始化 Wiki（创建首页），再重试。"
+            exit 1
+          fi
+
+      - name: Copy markdown files
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -d solutions ] || { echo "solutions/ not found"; exit 1; }
+
+          cd solutions
+          while IFS= read -r -d '' f; do
+            rel="${f#./}"
+            base="$(basename "$rel")"
+
+            # 不覆盖 wiki 的保留页面
+            case "$base" in
+              _Sidebar.md|_Footer.md|_Header.md) continue ;;
+            esac
+
+            # wiki 不支持子目录，把 a/b.md 展平为 a-b.md
+            target="../wiki/$(printf '%s' "$rel" | sed 's#/#-#g')"
+            cp "$f" "$target"
+          done < <(find . -type f -name '*.md' -print0)
+
+          cd ..
+          echo "---- wiki 目录内容 ----"
+          ls -la wiki
+
+      - name: Commit & push
+        shell: bash
+        run: |
+          cd wiki
+          git config user.name  "gitea-actions[bot]"
+          git config user.email "gitea-actions[bot]@users.noreply.${{ github.server_url }}"
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to sync."
+            exit 0
+          fi
+
+          git commit -m "Sync solutions from ${GITHUB_REPOSITORY}@${GITHUB_SHA:0:7}"
+          git push
