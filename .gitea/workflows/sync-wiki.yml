@@ -6,6 +6,7 @@ on:
     branches: [master]
     paths:
       - "solutions/**"
+      - ".gitea/workflows/sync-wiki.yml"
   workflow_dispatch:
 
 permissions:
@@ -61,6 +62,66 @@ jobs:
           cd ..
           echo "---- wiki 目录内容 ----"
           ls -la wiki
+
+      - name: Generate sidebar
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -d solutions ] || { echo "solutions/ not found"; exit 1; }
+          [ -d wiki ]      || { echo "wiki/ not found";      exit 1; }
+
+          out=wiki/_Sidebar.md
+
+          # 收集 solutions 下所有 md（相对路径，去掉扩展名），按路径排序
+          mapfile -t items < <(
+            find solutions -type f -name '*.md' -printf '%P\n' \
+              | sed 's/\.md$//' \
+              | sort
+          )
+
+          {
+            echo "## 题解"
+            echo ""
+            echo "[🏠 返回仓库](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY})"
+            echo ""
+
+            if [ "${#items[@]}" -eq 0 ]; then
+              echo "_暂无题解_"
+            else
+              current="__NONE__"
+              for rel in "${items[@]}"; do
+                base="$(basename "$rel")"
+                # 跳过 wiki 保留页面
+                case "$base" in
+                  _Sidebar|_Footer|_Header) continue ;;
+                esac
+
+                dir="$(dirname "$rel")"
+                [[ "$dir" == "." ]] && dir=""
+
+                # 目录切换时输出分组标题
+                if [[ "$dir" != "$current" ]]; then
+                  echo ""
+                  if [[ -n "$dir" ]]; then
+                    echo "### ${dir}"
+                  else
+                    echo "### 根目录"
+                  fi
+                  echo ""
+                  current="$dir"
+                fi
+
+                # 与 Copy 步骤一致的展平规则：a/b -> a-b
+                flat="$(printf '%s' "$rel" | tr '/' '-')"
+
+                # Gitea wiki 链接语法：[[页面名|显示文本]]
+                echo "- [[${flat}|${base}]]"
+              done
+            fi
+          } > "$out"
+
+          echo "---- _Sidebar.md ----"
+          cat "$out"
 
       - name: Commit & push
         shell: bash
