@@ -9,7 +9,42 @@ int dfn[100005];
 int top[100005];
 int dep[100005];
 int nowdfn;
-int ans[100005];
+struct SEG{
+    int num[400005], lt[400005];
+    void pu(int now) {
+        num[now] = num[now * 2] + num[now * 2 + 1];
+    }
+    void pd(int now, int nl, int nr) {
+        int nmid = (nl + nr) >> 1;
+        int l = lt[now];
+        num[now * 2] += l * (nmid - nl + 1);
+        num[now * 2 + 1] += l * (nr - nmid);
+        lt[now * 2] += l;
+        lt[now * 2 + 1] += l;
+        lt[now] = 0;
+    }
+    void add(int now, int nl, int nr, int l, int r, int nn) {
+        if(nl > r || nr < l) return;
+        if(l <= nl && nr <= r) {
+            num[now] += nn;
+            lt[now] += nn;
+            return;
+        }
+        int nmid = (nl + nr) >> 1;
+        add(now * 2, nl, nmid, l, r, nn);
+        add(now * 2 + 1, nmid + 1, nr, l, r, nn);
+        pu(now);
+    }
+    int query(int now, int nl, int nr, int l, int r) {
+        if(nl > r || nr < l) return 0;
+        if(l <= nl && nr <= r) {
+            return num[now];
+        }
+        int nmid = (nl + nr) >> 1;
+        pd(now, nl, nr);
+        return query(now * 2, nl, nmid, l, r) + query(now * 2 + 1, nmid + 1, nr, l, r);
+    }
+}seg;
 void dfs1(int now, int from) {
     cnt[now] = 1;
     for(int i : fri[now]) {
@@ -30,20 +65,14 @@ void dfs2(int now, int from) {
         dfs2(i, i);
     }
 }
-int lca(int a, int b) {
+void add(int a, int b) {
     while(top[a] != top[b]) {
         if(dep[top[a]] < dep[top[b]]) swap(a, b);
+        seg.add(1, 1, n, dfn[top[a]], dfn[a], 1);
         a = fa[top[a]];
     }
     if(dep[a] < dep[b]) swap(a, b);
-    return b;
-}
-void dfsadd(int now, int from) {
-    for(int i : fri[now]) {
-        if(i == from) continue;
-        dfsadd(i, now);
-        ans[now] += ans[i];
-    }
+    seg.add(1, 1, n, dfn[b], dfn[a], 1);
 }
 int main() {
     scanf("%d%d", &n, &k);
@@ -57,15 +86,12 @@ int main() {
     while(k--) {
         int u, v;
         scanf("%d%d", &u, &v);
-        int w = lca(u, v);
-        ans[u]++;
-        ans[v]++;
-        ans[w]--;
-        if(fa[w]) ans[fa[w]]--;
+        add(u, v);
     }
-    dfsadd(1, -1);
-    int maxans = 0;
-    for(int i = 1; i <= n; ++i) maxans = max(maxans, ans[i]);
-    printf("%d\n", maxans);
+    int ans = 0;
+    for(int i = 1; i <= n; ++i) {
+        ans = max(ans, seg.query(1, 1, n, i, i));
+    }
+    printf("%d\n", ans);
     return 0;
 }
