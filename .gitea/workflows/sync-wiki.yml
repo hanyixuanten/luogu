@@ -73,10 +73,11 @@ jobs:
           out=wiki/_Sidebar.md
 
           # 收集 solutions 下所有 md（相对路径，去掉扩展名），按路径排序
+          # 用 -V 做自然排序：P1000 < P2000 < P10000，而不是字典序的 P10000 < P2000
           mapfile -t items < <(
             find solutions -type f -name '*.md' -printf '%P\n' \
               | sed 's/\.md$//' \
-              | sort
+              | sort -V
           )
 
           {
