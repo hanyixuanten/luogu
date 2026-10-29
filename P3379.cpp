@@ -2,32 +2,40 @@
 using namespace std;
 int n, m, s;
 vector<int> fri[500005];
-int fa[500005][25];
 int dep[500005];
-void dfs(int now, int from = -1) {
-    for(int i = 1; i <= 24; ++i) {
-        fa[now][i] = fa[fa[now][i - 1]][i - 1];
-    }
+int fa[500005];
+int son[500005];
+int cnt[500005];
+int dfn[500005];
+int top[500005];
+int nowdfn;
+void dfs1(int now, int from) {
+    dfn[now] = ++nowdfn;
+    cnt[now] = 1;
+    dep[now] = dep[fa[now]] + 1;
     for(int i : fri[now]) {
         if(i == from) continue;
-        dep[i] = dep[now] + 1;
-        fa[i][0] = now;
-        dfs(i, now);
+        fa[i] = now;
+        dfs1(i, now);
+        cnt[now] += cnt[i];
+        if(cnt[son[now]] < cnt[i]) son[now] = i;
+    }
+}
+void dfs2(int now, int from) {
+    top[now] = from;
+    if(son[now]) dfs2(son[now], from);
+    for(int i : fri[now]) {
+        if(i == fa[now] || i == son[now]) continue;
+        dfs2(i, i);
     }
 }
 int lca(int a, int b) {
+    while(top[a] != top[b]) {
+        if(dep[top[a]] < dep[top[b]]) swap(a, b);
+        a = fa[top[a]];
+    }
     if(dep[a] < dep[b]) swap(a, b);
-    for(int i = 24; i >= 0 && dep[a] > dep[b]; --i) {
-        if(a == b) return a;
-        if(dep[fa[a][i]] >= dep[b] && dep[a] >= (1 << i)) a = fa[a][i];
-        if(a == b) return a;
-    }
-    if(a == b) return a;
-    for(int i = 24; i >= 0; --i) {
-        if(fa[a][i] != fa[b][i] && dep[a] >= (1 << i)) a = fa[a][i], b = fa[b][i];
-    }
-    if(a != b) a = fa[a][0];
-    return a;
+    return b;
 }
 int main() {
     scanf("%d%d%d", &n, &m, &s);
@@ -36,7 +44,8 @@ int main() {
         fri[u].push_back(v);
         fri[v].push_back(u);
     }
-    dfs(s);
+    dfs1(s, -1);
+    dfs2(s, s);
     while(m--) {
         int a, b;
         scanf("%d%d", &a, &b);
