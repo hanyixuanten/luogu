@@ -4,7 +4,7 @@ int n, m, k;
 long long x, y;
 int a[200005];
 int b, preb;
-unordered_map<int, int> wz;
+int pos[200005];
 bool k_is_better;
 vector<int> mor;
 long long del(int pre, int todo)
@@ -39,15 +39,15 @@ int main()
     for (int i = 1; i <= n; ++i)
     {
         scanf("%d", &a[i]);
-        wz[a[i]] = i;
+        pos[a[i]] = i;
     }
     long long ans = 0;
     for (int i = 1; i <= m; ++i)
     {
         scanf("%d", &b);
-        int todo = wz[b], pre = 0;
+        int todo = pos[b], pre = 0;
         if (i != 1)
-            pre = wz[preb];
+            pre = pos[preb];
         long long d = del(pre, todo);
         if (d == -1ll)
         {
@@ -57,7 +57,7 @@ int main()
         ans += d;
         preb = b;
     }
-    long long d = del(wz[b], n + 1);
+    long long d = del(pos[b], n + 1);
     if (d == -1ll)
     {
         printf("-1\n");
