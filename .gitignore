@@ -9,3 +9,5 @@
 !.gitea
 !.gitea/**
 !.clang-format
+!article
+!article/*.md
