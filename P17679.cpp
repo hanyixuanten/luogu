@@ -1,6 +1,7 @@
 #include <bits/stdc++.h>
 using namespace std;
-int n, k;
+int n;
+long long k;
 vector<char> s[100005];
 long long cost[100005];
 vector<char> l1, l2, l31, l32;
@@ -38,11 +39,39 @@ void init()
             cost[i] += gdis(s[i][j] - 'a', s[i][j - 1] - 'a');
 }
 const long long INF = 0x7f7f7f7f7f7f7f7fll;
-long long dp[2][27];
+struct Mat
+{
+    long long a[26][26];
+    Mat operator*(const Mat &B) {
+        Mat C;
+        for (int i = 0; i < 26; ++i)
+            for (int j = 0; j < 26; ++j)
+                C.a[i][j] = INF;
 
+        for (int i = 0; i < 26; ++i)
+        {
+            for (int t = 0; t < 26; ++t)
+            {
+                if (a[i][t] >= INF / 2)
+                    continue;
+
+                for (int j = 0; j < 26; ++j)
+                {
+                    if (B.a[t][j] >= INF / 2)
+                        continue;
+
+                    long long val = a[i][t] + B.a[t][j];
+                    if (val < C.a[i][j])
+                        C.a[i][j] = val;
+                }
+            }
+        }
+        return C;
+    }
+};
 int main()
 {
-    scanf("%d%d", &n, &k);
+    scanf("%d%lld", &n, &k);
     for (int i = 1; i <= n; ++i)
         get(s[i]);
     get(l1);
@@ -50,29 +79,38 @@ int main()
     get(l31);
     get(l32);
     init();
-    int cur = 0;
+    Mat M;
     for (int i = 0; i < 26; ++i)
-        dp[cur][i] = 0;
-    for (int i = 1; i <= k; ++i)
+        for (int j = 0; j < 26; ++j)
+            M.a[i][j] = INF;
+    for (int j = 1; j <= n; ++j)
     {
-        int nxt = cur ^ 1;
-        for (int x = 0; x < 26; ++x)
-            dp[nxt][x] = INF;
-        for (int j = 1; j <= n; ++j)
+        int fc = s[j][0] - 'a';
+        int lc = s[j][s[j].size() - 1] - 'a';
+        for (int c = 0; c < 26; ++c)
         {
-            int fc = s[j][0] - 'a';
-            int lc = s[j][s[j].size() - 1] - 'a';
-            long long best = INF;
-            for (int kk = 0; kk < 26; ++kk)
-                best = min(best, dp[cur][kk] + gdis(kk, fc));
-            dp[nxt][lc] = min(dp[nxt][lc], best + cost[j]);
+            long long val = cost[j] + dis[c][fc];
+            if (val < M.a[c][lc])
+                M.a[c][lc] = val;
         }
-        cur = nxt;
+    }
+    Mat res; // 初始为单位矩阵
+    for (int i = 0; i < 26; ++i)
+        for (int j = 0; j < 26; ++j)
+            res.a[i][j] = (i == j ? 0 : INF);
+    long long exp = k;
+    while (exp > 0)
+    {
+        if (exp & 1LL)
+            res = res * M;
+        M = M * M;
+        exp >>= 1LL;
     }
 
     long long ans = INF;
     for (int i = 0; i < 26; ++i)
-        ans = min(ans, dp[cur][i]);
+        for (int j = 0; j < 26; ++j)
+            ans = min(ans, res.a[i][j]);
     printf("%lld\n", ans);
     return 0;
 }
